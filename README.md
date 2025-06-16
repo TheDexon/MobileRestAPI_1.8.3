@@ -617,6 +617,8 @@ Allows users to specify the reason for an unrecognized product during recognitio
 |--------|--------|----------|---------------------------------|
 | result | String | Yes      | Result of the operation.        |
 
+![Interaction Flow between User and IR Server](images/Interaction_Flow_between_User_and_IR_Server.png)
+
 **Process**:
 1. iSales application sends images to the IR provider for recognition.
 2. IR provider returns an HTML report with JavaScript scripts.
