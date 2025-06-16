@@ -1,6 +1,26 @@
-# PepsiCo iSales Frontend API Documentation (Version 1.8)
-
 This documentation describes the PepsiCo iSales Frontend API, designed for integration with the Image Recognition (IR) system. The API enables management of visits to points of sale, scenes, images, and reports related to product recognition on shelves.
+
+## History
+
+| Version | Description                         |
+|---------|-------------------------------------|
+| 1.1     | Commit                              |
+| 1.2     | Commit                              |
+| 1.3     | Commit                              |
+| 1.4     | Commit                              |
+| 1.5     | Commit (start version controls)     |
+| 1.6     | Publish                             |
+| 1.7     | Fields changes                      |
+| 1.8     | Fields changes                      |
+
+## Change Log
+
+| Version | Description                                      |
+|---------|--------------------------------------------------|
+| 1.5     | - SceneType enumeration changed to SceneType type, added scene name for differentiation in store different scenes with the same type<br>- Added new action `api_version` for provider supported version |
+| 1.6     | - Added section "Use Cases"                      |
+| 1.7     | - Added new fields to actions                    |
+| 1.8     | - Added new fields to actions & new action       |
 
 ## Table of Contents
 
