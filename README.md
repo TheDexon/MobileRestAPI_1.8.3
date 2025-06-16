@@ -48,168 +48,175 @@ Logical objects represent the key entities used in the API:
 
 ![Objects Relation Diagram](images/Objects_relation.png)
 
-This structure allows for hierarchical management of data, where a visit encapsulates multiple scenes, each with its own set of images and recognition results.
-
 ### Interaction Concept
 
-API поддерживает два основных сценария взаимодействия:
+The API supports two main interaction scenarios.
 
 #### Online Visit General Scheme
 
-In an online visit, the agent works in real-time, uploading images to the server for immediate recognition. The process involves:
-- Preparing the visit and scene.  
-- Uploading images.  
-- Requesting recognition.  
-- Retrieving and analyzing reports.  
+![Online Visit General Scheme](images/Online_visit_general_scheme.png)  
 
 #### Offline Visit General Scheme
 
-In an offline visit, images are stored locally on the device and uploaded later when an internet connection is available. The workflow is similar to the online visit but includes local storage and deferred upload steps.
+![Offline Visit General Scheme](images/Offline_visit_general_scheme.png)
 
 #### General Actions
 
 The API provides the following general actions for managing visits and recognition:
 
-| Category                     | Action            | Description                                      |
-|------------------------------|-------------------|--------------------------------------------------|
-| **Recognition**              | prepare_scene     | Early preparation of scene and visit, if applicable. |
-|                              | image_upload      | Upload images to the IR system.                  |
-|                              | image_delete      | Delete an image from the IR system.              |
-|                              | recognize         | Request recognition of uploaded images.          |
-|                              | finalize_visit    | Finalize the visit in the shop.                  |
-| **Status of Recognition**    | report_list       | Get a list of recognition results with status.   |
-| **Manipulation with Results**| report_data       | Get recognition results.                         |
+| Category                                    | Action                | Description                                              |
+|---------------------------------------------|-----------------------|----------------------------------------------------------|
+| **Recognition**                             | prepare_scene         | Early preparation scene and visit if it is applicable.   |
+|                                             | image_upload          | Upload image to IR.                                      |
+|                                             | image_delete          | Delete image from IR.                                    |
+|                                             | recognize             | Request of recognition uploaded images.                  |
+|                                             | finalize_visit        | Finalizing the visit in the shop.                        |
+| **Status of Recognition**                   | report_list           | Get list of results of recognition with status.          |
+| **Manipulation with Result of Recognition** | report_data           | Get result(report) of recognition.                       |
+|                                             | image_download        | Download images from IR backend.                         |
+| **Interactive Operations with Results (Reports)** | operation_result | Back user interaction result to IR backend.              |
+|                                             | reference_description | Get extra description of report element.                 |
+| **Services**                                | sync_ids              | IDs synchronization between SAF and IR.                  |
+|                                             | api_version           | Return supported version by IR provider, minimum version 1.5. |
+| **History**                                 | history_visitsids     | Get last consolidated visits history by IDs.             |
+|                                             | history_visits        | Get last consolidated visits history by parameters.      |
 
 ---
 
+
 ## Types Definition
-
-Ниже описаны типы данных, используемые в API. Все поля и описания приведены на английском, как в оригинальном документе, для соответствия стандартам разработки.
-
 ### ReportStatus Enumeration
 
-Defines the status of a report.
+Defines the status of reports on the server side.
 
-| Value       | Description                     |
-|-------------|---------------------------------|
-| READY       | Report is fully processed.      |
-| NOT_READY   | Report is still processing.     |
+| Code      | Description                                                                 |
+|-----------|-----------------------------------------------------------------------------|
+| READY     | Report fully ready and can be downloaded.                                   |
+| NOTREADY  | Report not yet ready, report data will be empty. To refresh report status needed to request server again. |
+| ERROR     | Faced some error during recognize.                                          |
 
 ### SeriesType Enumeration
 
-Defines the type of photo series.
+Represents the type of photo series, to be agreed with the IR provider.
 
-| Value       | Description                     |
-|-------------|---------------------------------|
-| LEFT        | Left part of a panorama.        |
-| RIGHT       | Right part of a panorama.       |
-| CENTER      | Center part of a panorama.      |
+| Code                      | Description                              |
+|---------------------------|------------------------------------------|
+| will be agreed with IR provider | Type of sequence (Down-Up-Left, Snaking and etc). |
+
+**Note**: Specific values for `SeriesType` are to be defined in collaboration with the IR provider.
 
 ### SceneType Type
 
-Represents the type of scene, agreed with the IR provider.
+Represents the type of scene, agreed with the IR provider. Type is a string enumeration stored in the SFA database.
 
-| Field | Type   | Required | Description                     |
-|-------|--------|----------|---------------------------------|
-| type  | String | Yes      | Scene type (e.g., "SHELF").     |
-| name  | String | No       | Optional scene name.            |
+| Field | Type   | Required | Description                                              |
+|-------|--------|----------|----------------------------------------------------------|
+| type  | String | Yes      | Enumeration will be agreed with IR provider. Type of scene (Main shelf, Cold zone, Cooler and etc). |
+| name  | String | No       | Name of scene.                                           |
 
 ### KeyValue Type
 
 Represents a key-value pair in JSON format.
 
-| Field | Type   | Description                     |
-|-------|--------|---------------------------------|
-| key   | String | Key (e.g., "shopId").           |
-| value | String | Value (e.g., "128").            |
+| Field | Type   | Required | Description                     | Example                     |
+|-------|--------|----------|---------------------------------|-----------------------------|
+| key   | String | Yes      | Key identifier.                 | "shopid"                    |
+| value | String | Yes      | Value associated with the key.  | "i29"                       |
 
-**Example**: 
+**Example json**:
 ```json
-{"key": "shopId", "value": "128"}
+{
+  "key": "shopid",
+  "value": "i29"
+}
 ```
 
 ### Rectangle Type
 
 Represents a rectangular area on an image.
 
-| Field  | Type   | Description                     |
-|--------|--------|---------------------------------|
-| top    | String | Offset from top-left corner.    |
-| left   | String | Offset from top-left corner.    |
-| bottom | String | Offset from top-left corner.    |
-| right  | String | Offset from top-left corner.    |
+| Field  | Type   | Required | Description                     |
+|--------|--------|----------|---------------------------------|
+| top    | String | Yes      | Offset relevant to topleft coner. |
+| left   | String | Yes      | Offset relevant to topleft coner. |
+| bottom | String | Yes      | Offset relevant to topleft coner. |
+| right  | String | Yes      | Offset relevant to topleft coner. |
 
 ### Hint Type
 
-Represents a hint or notification.
+Represents a notification or hint message.
 
-| Field   | Type   | Description                     |
-|---------|--------|---------------------------------|
-| type    | String | Notification type (ERR/WARNING/OK). |
-| message | String | Hint message.                   |
+| Field   | Type   | Required | Description                     |
+|---------|--------|----------|---------------------------------|
+| type    | String | Yes      | Notification type (ERR/WARNING/OK). |
+| message | String | Yes      | Hint message.                   |
 
 ### SeriesDesc Type
 
-Description of a photo series for a particular image.
+Describes a series of photos for a particular image.
 
-| Field  | Type        | Description                     |
-|--------|-------------|---------------------------------|
-| key    | String      | Series key (for stitching images). |
-| line   | String      | Line number relative to the first photo. |
-| column | String      | Column number relative to the first photo. |
-| type   | SeriesType  | Series type (e.g., LEFT, RIGHT, CENTER). |
+| Field  | Type        | Required | Description                                              |
+|--------|-------------|----------|----------------------------------------------------------|
+| key    | String      | Yes      | Series key (stitching image).                            |
+| line   | String      | Yes      | Line number of photo relatively to the first photo.      |
+| colmn  | String      | Yes      | Column number of photo relatively to the first photo.    |
+| type   | SeriesType  | Yes      | Series type.                                             |
 
 ### ImageUnit Type
 
 Represents an image captured in the user interface.
 
-| Field        | Type   | Required | Description                     |
-|--------------|--------|----------|---------------------------------|
-| ext_image_id | String | Yes      | External image ID.              |
-| datafile     | String | Yes      | JPEG image data (Base64).       |
+| Field        | Type   | Required | Description                                              |
+|--------------|--------|----------|----------------------------------------------------------|
+| ext_image_id | String | Yes      | External image ID.                                       |
+| datafile     | String | Yes      | Jpeg image (format will be agreed with IR provider).     |
 
 ### ReportType Type
 
-Represents the code of a recognition report.
+Represents the code of a recognition report, defining what must be recognized.
 
-| Field | Type          | Required | Description                     |
-|-------|---------------|----------|---------------------------------|
-| code  | String        | Yes      | Constant value agreed between SFA and IR provider. |
-| flags | Array[String] | No       | Report flags (WEBSTYLE, JSONSTYLE, MIXSTYLE). |
+| Field | Type          | Required | Description                                              |
+|-------|---------------|----------|----------------------------------------------------------|
+| code  | String        | Yes      | Const value (values are agreed between SFA and IR provider). |
+| flags | Array[String] | No       | Report flags (WEBSTYLE/JSONSTYLE/MIXSTYLE).              |
 
 **Report Flags**:
 
-| Flag       | Description                     |
-|------------|---------------------------------|
-| WEBSTYLE   | Report in HTML format, can be processed by end-user in SFA. |
-| JSONSTYLE  | Report to be processed by SFA programmatically. |
-| MIXSTYLE   | Reserved for future use.        |
+| Flag      | Description                                              |
+|-----------|----------------------------------------------------------|
+| WEBSTYLE  | Report to be shown (in html format) and can be processed by end-user in SFA. |
+| JSONSTYLE | Report should be processed by SFA.                       |
+| MIXSTYLE  | Reserved.                                                |
 
 ### SFA Metadata
 
 Metadata for a visit in the SFA system.
 
-| Field                     | Type           | Required | Description                     | Example                     |
-|---------------------------|----------------|----------|---------------------------------|-----------------------------|
-| route                     | String         | Yes      | Route number.                   | "RUN060"                    |
-| shopId                    | String         | Yes      | Shop ID.                        | "0200231621"                |
-| agentId                   | String         | Yes      | Agent ID.                       | "80322598"                  |
-| role                      | String         | Yes      | Agent role.                     | "Merch+"                    |
-| orgId                     | String         | Yes      | Organization ID.                | "1"                         |
-| scene_additional_attribute | Array[KeyValue] | No      | Additional scene attributes.    | []                          |
-| scene_attribute           | Array[String]  | No       | Scene attributes.               | ["shelf1"]                  |
-| flag_after                | Integer (0-2)  | No       | Completion flag.                | "0"                         |
+| Field                     | Type           | Required | Description                     | Example                                          |
+|---------------------------|----------------|----------|---------------------------------|--------------------------------------------------|
+| route                     | String         | Yes      | Route number.                   | "RUNOGD"                                         |
+| shopid                    | String         | Yes      | Shop ID.                        | "0200231621"                                     |
+| agentid                   | String         | Yes      | Agent ID.                       | "80322598"                                       |
+| role                      | String         | Yes      | Agent role.                     | "Merch+"                                         |
+| orgid                     | String         | Yes      | Organization ID.                | "1"                                              |
+| scene_additional_attributes | Array[KeyValue] | No      | Additional scene attributes.    | [{"key": "0", "value": "test_l1_l1_l1"}, {"key": "1", "value": "test_l1_l1_id1"}, {"key": "2", "value": "test_l3_id1"}] |
+| scene_attribute           | Array[String]  | No       | Scene attributes.               | ["AEP", "(1)", "Снеки", "Колонна", "Lays", "G-110"] |
+| flag_after                | Integer (0-2)  | No       | Completion flag.                | "0"                                              |
 
-**Example**:
+**Example json**:
 ```json
 {
-  "route": "RUN060",
-  "shopId": "0200231621",
-  "agentId": "80322598",
+  "route": "RUNOGD",
+  "shopid": "0200231621",
+  "agentid": "80322598",
   "role": "Merch+",
-  "orgId": "1",
-  "scene_additional_attribute": [],
-  "scene_attribute": ["shelf1"],
+  "orgid": "1",
+  "scene_additional_attributes": [
+    {"key": "0", "value": "test_l1_l1_l1"},
+    {"key": "1", "value": "test_l1_l1_id1"},
+    {"key": "2", "value": "test_l3_id1"}
+  ],
+  "scene_attribute": ["AEP", "(1)", "Снеки", "Колонна", "Lays", "G-110"],
   "flag_after": "0"
 }
 ```
@@ -220,21 +227,21 @@ Metadata describing the shooting conditions of an image.
 
 | Field      | Type   | Required | Description                     | Example                     |
 |------------|--------|----------|---------------------------------|-----------------------------|
-| longitude  | String | Yes      | Longitude of capture location.  | "82.9467941"                |
-| latitude   | String | Yes      | Latitude of capture location.   | "54.9603282"                |
+| longitude  | String | Yes      | Longitude of capture location.  | "82,9467941"                |
+| latitude   | String | Yes      | Latitude of capture location.   | "54,9603282"                |
 | brightness | String | Yes      | Image brightness.               | "87"                        |
-| contrast   | String | Yes      | Image contrast.                 | "241.527628537085"          |
-| gyroroll   | String | Yes      | Gyro roll angle.                | "-0.9965955"                |
-| gyropitch  | String | Yes      | Gyro pitch angle.               | "5.985871"                  |
+| contrast   | String | Yes      | Image contrast.                 | "241,527628537085"          |
+| sword      | String | Yes      | (Possibly gyro roll angle).     | "-0,9965955"                |
+| gyropitch  | String | Yes      | Gyro pitch angle.               | "5,985871"                  |
 
-**Example**:
+**Example json**:
 ```json
 {
-  "longitude": "82.9467941",
-  "latitude": "54.9603282",
+  "longitude": "82,9467941",
+  "latitude": "54,9603282",
   "brightness": "87",
-  "contrast": "241.527628537085",
-  "gyroroll": "-0.9965955",
-  "gyropitch": "5.985871"
+  "contrast": "241,527628537085",
+  "sword": "-0,9965955",
+  "gyropitch": "5,985871"
 }
 ```
