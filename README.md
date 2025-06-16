@@ -34,6 +34,9 @@ This documentation describes the PepsiCo iSales Frontend API, designed for integ
    3.6 [Get Last Consolidated Visits History](#get-last-consolidated-visits-history)  
    3.7 [Set Reason for Unrecognized Product](#set-reason-for-unrecognized-product)  
 
+4. [Use Cases](#use-cases)  
+   4.1 [Normal Online Visit](#normal-online-visit)  
+
 ---
 
 ## Introduction
@@ -75,21 +78,23 @@ The API provides the following general actions for managing visits and recogniti
 
 | Category                                    | Action                | Description                                              |
 |---------------------------------------------|-----------------------|----------------------------------------------------------|
-| **Recognition**                             | prepare_scene         | Early preparation scene and visit if it is applicable.   |
-|                                             | image_upload          | Upload image to IR.                                      |
-|                                             | image_delete          | Delete image from IR.                                    |
-|                                             | recognize             | Request of recognition uploaded images.                  |
-|                                             | finalize_visit        | Finalizing the visit in the shop.                        |
-| **Status of Recognition**                   | report_list           | Get list of results of recognition with status.          |
-| **Manipulation with Result of Recognition** | report_data           | Get result(report) of recognition.                       |
-|                                             | image_download        | Download images from IR backend.                         |
-| **Interactive Operations with Results (Reports)** | operation_result | Back user interaction result to IR backend.              |
-|                                             | reference_description | Get extra description of report element.                 |
-|                                             | oos_reason            | Set the reason for unrecognized product.                 |
-| **Services**                                | sync_ids              | IDs synchronization between SFA and IR.                  |
-|                                             | api_version           | Return supported version by IR provider, minimum version 1.5. |
-| **History**                                 | history_visitsids     | Get last consolidated visits history by IDs.             |
-|                                             | history_visits        | Get last consolidated visits history by parameters.      |
+| **Recognition**                             | [prepare_scene](#scene-preparation)         | Early preparation scene and visit if it is applicable.   |
+|                                             | [image_upload](#image-upload)               | Upload image to IR.                                      |
+|                                             | [image_delete](#image-delete)               | Delete image from IR.                                    |
+|                                             | [recognize](#recognize)                     | Request of recognition uploaded images.                  |
+|                                             | [finalize_visit](#finalize-visit)           | Finalizing the visit in the shop.                        |
+| **Status of Recognition**                   | [report_list](#get-reports-list)            | Get list of results of recognition with status.          |
+| **Manipulation with Result of Recognition** | [report_data](#get-reports-data)            | Get result(report) of recognition.                       |
+|                                             | [image_download](#image-download)           | Download images from IR backend.                         |
+| **Interactive Operations with Results (Reports)** | [operation_result](#operation-result) | Back user interaction result to IR backend.              |
+|                                             | [reference_description](#reference-description) | Get extra description of report element.                 |
+|                                             | [oos_reason](#set-reason-for-unrecognized-product) | Set the reason for unrecognized product.                 |
+| **Services**                                | [sync_ids](#sync-ids)                       | IDs synchronization between SFA and IR.                  |
+|                                             | [api_version](#api-version)                 | Return supported version by IR provider, minimum version 1.5. |
+| **History**                                 | [history_visitsids](#history-visits-by-ids) | Get last consolidated visits history by IDs.             |
+|                                             | [history_visits](#get-last-consolidated-visits-history) | Get last consolidated visits history by parameters.      |
+
+![Interaction Flow between User and IR Server](images/Interaction_Flow_between_User_and_IR_Server.png)
 
 ---
 
@@ -617,8 +622,6 @@ Allows users to specify the reason for an unrecognized product during recognitio
 |--------|--------|----------|---------------------------------|
 | result | String | Yes      | Result of the operation.        |
 
-![Interaction Flow between User and IR Server](images/Interaction_Flow_between_User_and_IR_Server.png)
-
 **Process**:
 1. iSales application sends images to the IR provider for recognition.
 2. IR provider returns an HTML report with JavaScript scripts.
@@ -648,3 +651,30 @@ function r3(e, component_name, isales_sku_code) {
 
 - `Image_photo_link`: Link to the standard photo of the product.
 - `sku_cid`: Product ID.
+
+---
+
+## Use Cases
+
+### Normal Online Visit
+
+**Plot**:  
+Agent comes to a big store. In the store, there are one main shelf, two branded coolers with different configurations, and an additional branded rack. The agent should capture the state of the main shelf before and after working with the shelf, capture the states of the coolers and rack. The agent can interrupt their work, can decide to recapture wrong photos, and the order of the scenes is arbitrary.
+
+**Workflow**:
+
+| Agent                          | Action API             | SFA mobile                          | IR backend                       | Parameters stored in SFA          |
+|--------------------------------|-----------------------|-------------------------------------|-----------------------------------|-----------------------------------|
+| Start IR visit inside SFA visit | -                     | - Check visit conditions<br>- Create new visit ID `ext_visit_id` | -                                 | `ext_visit_id`                    |
+| Open new main shelf            | [prepare_scene](#scene-preparation) | - Create new scene ID `ext_scene_id` with scene type<br>- Fill out paraments<br>- Request IR backend | - Process `prepare_scene` request<br>- Return `int_visit_id` and `int_scene_id` | `ext_visit_id`, `ext_scene_id`, `scene_type`, `report_types`, `metadata`, `optional` |
+| Capture photos of main shelf   | [image_upload](#image-upload) | - Take photos<br>- Upload to IR backend | - Store images<br>- Assign `int_image_id` | `ext_image_id`, `datafile`, `ext_visit_id`, `ext_scene_id`, `int_visit_id`, `int_scene_id`, `metadata` |
+| Request recognition            | [recognize](#recognize) | - Trigger recognition process | - Process images<br>- Generate recognition request | `ext_visit_id`, `ext_scene_id`, `int_visit_id`, `int_scene_id` |
+| Get recognition report         | [report_list](#get-reports-list)<br>[report_data](#get-reports-data) | - Request report list<br>- Retrieve report data | - Return report list<br>- Provide report data | `int_visit_id`, `int_scene_id`, `status`, `report_data` |
+| Work with coolers and rack     | [prepare_scene](#scene-preparation)<br>[image_upload](#image-upload) | - Create new scenes for coolers and rack<br>- Capture and upload photos | - Process requests<br>- Store images | `ext_scene_id`, `scene_type`, `ext_image_id`, `datafile`, etc. |
+| Finalize visit                 | [finalize_visit](#finalize-visit) | - Complete visit process | - Update visit status | `ext_visit_id`, `int_visit_id` |
+
+**Notes**:  
+- The agent can interrupt work at any step and resume later.
+- Wrong photos can be recaptured and re-uploaded using `[image_delete](#image-delete)` followed by `[image_upload](#image-upload)`.
+- The order of scenes (main shelf, coolers, rack) is arbitrary and managed via multiple `prepare_scene` calls.
+- Details for actions like `recognize` and `finalize_visit` require clarification with the IR provider.
