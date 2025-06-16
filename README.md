@@ -1,6 +1,6 @@
 # PepsiCo iSales Frontend API Documentation (Version 1.8)
 
-This documentation describes the PepsiCo iSales Frontend API, designed for integration with the Image Recognition (IR) system. The API enables management of visits to points of sale, scenes, images, and reports related to product recognition on shelves. All technical terms, fields, and examples are provided in English, as in the original document, to align with development standards.
+This documentation describes the PepsiCo iSales Frontend API, designed for integration with the Image Recognition (IR) system. The API enables management of visits to points of sale, scenes, images, and reports related to product recognition on shelves.
 
 ## Table of Contents
 
@@ -24,6 +24,15 @@ This documentation describes the PepsiCo iSales Frontend API, designed for integ
    2.9 [ReportType Type](#reporttype-type)  
    2.10 [SFA Metadata](#sfa-metadata)  
    2.11 [Image Metadata](#image-metadata)  
+
+3. [Actions](#actions)  
+   3.1 [Scene Preparation](#scene-preparation)  
+   3.2 [Image Upload](#image-upload)  
+   3.3 [Image Delete](#image-delete)  
+   3.4 [Get Reports List](#get-reports-list)  
+   3.5 [Get Report(s) Data](#get-reports-data)  
+   3.6 [Get Last Consolidated Visits History](#get-last-consolidated-visits-history)  
+   3.7 [Set Reason for Unrecognized Product](#set-reason-for-unrecognized-product)  
 
 ---
 
@@ -76,15 +85,16 @@ The API provides the following general actions for managing visits and recogniti
 |                                             | image_download        | Download images from IR backend.                         |
 | **Interactive Operations with Results (Reports)** | operation_result | Back user interaction result to IR backend.              |
 |                                             | reference_description | Get extra description of report element.                 |
-| **Services**                                | sync_ids              | IDs synchronization between SAF and IR.                  |
+|                                             | oos_reason            | Set the reason for unrecognized product.                 |
+| **Services**                                | sync_ids              | IDs synchronization between SFA and IR.                  |
 |                                             | api_version           | Return supported version by IR provider, minimum version 1.5. |
 | **History**                                 | history_visitsids     | Get last consolidated visits history by IDs.             |
 |                                             | history_visits        | Get last consolidated visits history by parameters.      |
 
 ---
 
-
 ## Types Definition
+
 ### ReportStatus Enumeration
 
 Defines the status of reports on the server side.
@@ -123,7 +133,7 @@ Represents a key-value pair in JSON format.
 | key   | String | Yes      | Key identifier.                 | "shopid"                    |
 | value | String | Yes      | Value associated with the key.  | "i29"                       |
 
-**Example json**:
+**Example**:
 ```json
 {
   "key": "shopid",
@@ -203,7 +213,7 @@ Metadata for a visit in the SFA system.
 | scene_attribute           | Array[String]  | No       | Scene attributes.               | ["AEP", "(1)", "Снеки", "Колонна", "Lays", "G-110"] |
 | flag_after                | Integer (0-2)  | No       | Completion flag.                | "0"                                              |
 
-**Example json**:
+**Example**:
 ```json
 {
   "route": "RUNOGD",
@@ -221,6 +231,8 @@ Metadata for a visit in the SFA system.
 }
 ```
 
+**Note**: In some examples (e.g., `prepare_scene`), `scene_attribute` is a string (e.g., "[AEP;(1);Снеки;Колонна;Lays;G-110]"). This may indicate a need for clarification with the IR provider.
+
 ### Image Metadata
 
 Metadata describing the shooting conditions of an image.
@@ -234,7 +246,7 @@ Metadata describing the shooting conditions of an image.
 | sword      | String | Yes      | (Possibly gyro roll angle).     | "-0,9965955"                |
 | gyropitch  | String | Yes      | Gyro pitch angle.               | "5,985871"                  |
 
-**Example json**:
+**Example**:
 ```json
 {
   "longitude": "82,9467941",
@@ -245,3 +257,392 @@ Metadata describing the shooting conditions of an image.
   "gyropitch": "5,985871"
 }
 ```
+
+---
+
+## Actions
+
+Actions are the main endpoints used for all types of operations. Each action has its own ID and parameter list. The response data and structure depend on the action.
+
+**Endpoint**: `URL/action`
+
+**Request Data**:
+
+| Field       | Type          | Description                              |
+|-------------|---------------|------------------------------------------|
+| action_id   | String        | Action ID.                               |
+| parameters  | JSON Object   | List of parameters for the action ID.    |
+
+**Response Data**:
+
+| Field | Type        | Description                              |
+|-------|-------------|------------------------------------------|
+| Data  | JSON Object | Dictionary of response data for action.  |
+
+### Scene Preparation
+
+**Action ID**: `prepare_scene`
+
+Used for early preparation (create/open) of scene and visit objects. If a visit does not exist, it should be created. Each report is compiled for all images in the scene, suitable for combining photos of different parts of one shelf or multiple shelves of one product category. The action always returns response fields, even if the visit/scene already exists, without error messages for existing records.
+
+**Request Parameters**:
+
+| Field                     | Type           | Required | Description                     | Example                                          |
+|---------------------------|----------------|----------|---------------------------------|--------------------------------------------------|
+| ext_visit_id              | String         | Yes      | External Visit ID.              | "9bf27010-393c-4a00-8b7e-05277469a334"          |
+| ext_scene_id              | String         | Yes      | External Scene ID.              | "4b4e8b09-cf1e-48c8-a8bc-c8f20e9c9348"          |
+| visit_started             | String         | Yes      | Timestamp in ISO 8601 format.   | "2023-10-02T16:47:41+04:00"                      |
+| scene_type                | SceneType      | Yes      | Scene type.                     | {"type": "WBD_COLD_SHELF", "name": "имя 1"}      |
+| report_types              | Array[ReportType] | Yes   | List of reports to generate.    | [{"code": "FACING_COUNT", "flags": "WEBSTYLE"}]  |
+| metadata                  | Array[KeyValue] | Yes     | SFA metadata.                   | {"route": "RUMGEE", "shopid": "0200231621", ...} |
+| optional                  | Array[KeyValue] | Yes     | Additional parameters (TBD).    | {}                                               |
+
+**Example Request**:
+```json
+{
+  "action_id": "prepare_scene",
+  "parameters": {
+    "ext_visit_id": "9bf27010-393c-4a00-8b7e-05277469a334",
+    "ext_scene_id": "4b4e8b09-cf1e-48c8-a8bc-c8f20e9c9348",
+    "visit_started": "2023-10-02T16:47:41+04:00",
+    "scene_type": {
+      "type": "WBD_COLD_SHELF",
+      "name": "имя 1"
+    },
+    "report_types": [
+      {
+        "code": "FACING_COUNT",
+        "flags": "WEBSTYLE"
+      }
+    ],
+    "metadata": {
+      "route": "RUMGEE",
+      "shopid": "0200231621",
+      "agentid": "69657",
+      "role": "CR 3PD",
+      "orgid": "1",
+      "scene_attribute": "[имя 1]",
+      "flag_after": "0"
+    },
+    "optional": {}
+  }
+}
+```
+
+**Response Fields**:
+
+| Field          | Type   | Required | Description                     | Example                     |
+|----------------|--------|----------|---------------------------------|-----------------------------|
+| prepare        | String | Yes      | Y/N prepared or action skipped. | "Y"                         |
+| int_visit_id   | String | No       | Internal visit ID.              | "10487751"                  |
+| int_scene_id   | String | No       | Internal scene ID.              | "58343096"                  |
+
+**Example Response**:
+```json
+{
+  "Data": {
+    "prepare": "Y",
+    "int_visit_id": "10487751",
+    "int_scene_id": "58343096"
+  }
+}
+```
+
+### Image Upload
+
+**Action ID**: `image_upload`
+
+Uploads images to the service. Only JPEG images are supported.
+
+**Request Parameters**:
+
+| Field        | Type        | Required | Description                     | Example                                          |
+|--------------|-------------|----------|---------------------------------|--------------------------------------------------|
+| ext_image_id | String      | Yes      | External image ID.              | "fcd4bdae-1c76-4175-a3be-20ca70c7c188"          |
+| datafile     | String      | Yes      | JPEG image (Base64 encoded).    | "base64(image)"                                  |
+| Series       | SeriesDesc  | No       | Series if applicable.           | {"key": "0", "line": "0", "colmn": "0", "type": "LEFT"} |
+| Crop         | Rectangle   | No       | Crop zone.                      | {"top": "0", "left": "0", "bottom": "0", "right": "0"} |
+| ext_visit_id | String      | Yes      | External Visit ID.              | "b8a88a19-dd1b-428e-a539-d4ea6457ec4b"          |
+| ext_scene_id | String      | Yes      | External Scene ID.              | "6de70bf1-e0b2-4a8b-a30d-2a1691051ede"          |
+| int_visit_id | String      | Yes      | Internal Visit ID.              | "10487751"                                       |
+| int_scene_id | String      | Yes      | Internal Scene ID.              | "58342889"                                       |
+| metadata     | Array[KeyValue] | No   | Image metadata.                 | {"longitude": "82,9467941", "latitude": "54,9603282", ...} |
+
+**Example Request**:
+```json
+{
+  "action_id": "image_upload",
+  "parameters": {
+    "ext_image_id": "fcd4bdae-1c76-4175-a3be-20ca70c7c188",
+    "datafile": "base64(image)",
+    "Series": {
+      "key": "0",
+      "line": "0",
+      "colmn": "0",
+      "type": "LEFT"
+    },
+    "Crop": {
+      "top": "0",
+      "left": "0",
+      "bottom": "0",
+      "right": "0"
+    },
+    "ext_visit_id": "b8a88a19-dd1b-428e-a539-d4ea6457ec4b",
+    "ext_scene_id": "6de70bf1-e0b2-4a8b-a30d-2a1691051ede",
+    "int_visit_id": "10487751",
+    "int_scene_id": "58342889",
+    "metadata": {
+      "longitude": "82,9467941",
+      "latitude": "54,9603282",
+      "brightness": "87",
+      "contrast": "241,527628537085",
+      "gyroroll": "-0,9965955",
+      "gyropitch": "5,985871"
+    }
+  }
+}
+```
+
+**Response Fields**:
+
+| Field       | Type     | Required | Description                     | Example                                          |
+|-------------|----------|----------|---------------------------------|--------------------------------------------------|
+| int_image_id | String  | Yes      | Internal image ID.              | "308791294"                                      |
+| width       | String   | Yes      | Image width.                    | "1548"                                           |
+| Height      | String   | Yes      | Image height.                   | "2064"                                           |
+| url         | String   | Yes      | URL of uploaded image.          | "https://site.com/images/77c6cad6-e421-4475-a449-daf6b8a20655.jpg" |
+| Created     | Datetime | Yes      | Date and time of image sent.    | "2023-09-18T05:19:52.306941+03:00"               |
+
+**Example Response**:
+```json
+{
+  "Data": {
+    "int_image_id": "308791294",
+    "width": "1548",
+    "Height": "2064",
+    "url": "https://site.com/images/77c6cad6-e421-4475-a449-daf6b8a20655.jpg",
+    "Created": "2023-09-18T05:19:52.306941+03:00"
+  }
+}
+```
+
+### Image Delete
+
+**Action ID**: `image_delete`
+
+Deletes images from the service.
+
+**Request Parameters**:
+
+| Field        | Type   | Required | Description                     | Example                                          |
+|--------------|--------|----------|---------------------------------|--------------------------------------------------|
+| int_image_id | String | No       | Internal image ID.              | "195202009"                                      |
+| ext_image_id | String | No       | External image ID.              | "49ae850f-a38b-444d-882d-992b23eac7f1"          |
+
+**Note**: At least one of `int_image_id` or `ext_image_id` must be provided.
+
+**Example Request**:
+```json
+{
+  "action_id": "image_delete",
+  "parameters": {
+    "int_image_id": "195202009",
+    "ext_image_id": "49ae850f-a38b-444d-882d-992b23eac7f1"
+  }
+}
+```
+
+**Response Fields**:
+No required fields.
+
+### Get Reports List
+
+**Action ID**: `report_list`
+
+Returns a list of reports linked to the target visit ID and scene ID.
+
+**Request Parameters**:
+
+| Field        | Type   | Required | Description                     |
+|--------------|--------|----------|---------------------------------|
+| int_visit_id | String | Yes      | Internal visit ID (filter).     |
+| int_scene_id | String | No       | Internal scene ID (filter).     |
+| ext_visit_id | String | Yes      | External Visit ID.              |
+| ext_scene_id | String | Yes      | External Scene ID.              |
+| route        | String | Yes      | Route ID (SFA Metadata).        |
+| date_report  | String | Yes      | Date for report creation.       |
+
+**Response Fields** (Array of):
+
+| Field        | Type         | Required | Description                              |
+|--------------|--------------|----------|------------------------------------------|
+| request_id   | String       | Yes      | Request ID for results/status.           |
+| datetime     | Datetime     | Yes      | Date and time of request sent.           |
+| status       | ReportStatus | Yes      | Status of all reports in the request.    |
+| message      | String       | Yes      | Message corresponding to status.         |
+| int_scene_id | String       | Yes      | Internal scene ID of the request.        |
+
+### Get Report(s) Data
+
+**Action ID**: `report_data`
+
+Returns status and results of reports. Supports filtering by request IDs, scene IDs, or visit ID.
+
+**Request Parameters**:
+
+| Field        | Type            | Required | Description                              |
+|--------------|-----------------|----------|------------------------------------------|
+| requests     | Array[String]   | No       | List of request IDs.                     |
+| scenes       | Array[String]   | No       | List of internal scene IDs.              |
+| int_visit_id | String          | No       | Internal visit ID.                       |
+| ext_scenes   | Array[String]   | No       | List of external scene IDs.              |
+| ext_visit_id | String          | No       | External Visit ID.                       |
+| reports      | Array[ReportType] | No     | Specific report types to retrieve.       |
+| ext_images   | Array[String]   | No       | External image IDs associated with request/scene. |
+
+**Note**: At least one of `requests`, `scenes`, `int_visit_id`, `ext_scenes`, or `ext_visit_id` must be provided.
+
+**Example Request**:
+```json
+{
+  "action_id": "report_data",
+  "parameters": {
+    "requests": [],
+    "int_visit_id": "10487751",
+    "ext_visit_id": "b8a88a19-dd1b-428e-a539-d4ea6457ec4b",
+    "scenes": ["58342889"],
+    "ext_scenes": ["6de70bf1-e0b2-4a8b-a30d-2a1691051ede"],
+    "ext_images": [],
+    "reports": []
+  }
+}
+```
+
+**Response Fields** (Array of):
+
+| Field        | Type            | Required | Description                              |
+|--------------|-----------------|----------|------------------------------------------|
+| request_id   | String          | No       | Current request ID.                      |
+| int_visit_id | String          | Yes      | Internal visit ID.                       |
+| int_scene_id | String          | Yes      | Internal scene ID.                       |
+| int_images   | Array[String]   | No       | Internal image IDs associated with request/scene. |
+| ext_images   | Array[String]   | No       | External image IDs associated with request/scene. |
+| status       | ReportStatus    | Yes      | Status of current recognition.           |
+| report_type  | ReportType      | Yes      | Type of report.                          |
+| report_data  | JSON/Base64/HTML | Yes      | Report data (format depends on type).    |
+
+**Example Response**:
+```json
+{
+  "Data": [
+    {
+      "int_visit_id": "10487751",
+      "int_scene_id": "58342889",
+      "int_images": ["308791289", "308791294", "308791292", "308791295"],
+      "ext_images": [
+        "971c1264-0983-4881-ad00-c11962783192",
+        "fcd4bdae-1c76-4175-a3be-20ca70c7c188",
+        "c62601ed-8e75-43b9-8c73-3304c7784c5a",
+        "4f78cc7c-c73f-4e9b-ab48-832c386be4a9"
+      ],
+      "status": "READY",
+      "report_type": {"code": "SCENE_RENDER", "flags": "WEBSTYLE"},
+      "report_data": "<button class='collapsible'><b>Бренд Блок_Lays <span style=\"color: #ff0000\">НЕТ</span></b></button><div class='content' style=\"display: none;\"><div style='margin-top:15px;'><table border=0><thead></thead><tbody><tr><td style=\"text-align: left;\">• Выровненные Бренд Блоки</td><td style=\"background-color: #ff0000;\">НЕТ</td></tr><tr><td style=\"text-align: left;\">…</td></tr></tbody></table></div></div>"
+    }
+  ]
+}
+```
+
+### Get Last Consolidated Visits History
+
+**Action ID**: `history_visits`
+
+Retrieves a defined number of recent consolidated visits history, filtered by SFA metadata parameters.
+
+**Request Parameters**:
+
+| Field   | Type   | Required | Description                     |
+|---------|--------|----------|---------------------------------|
+| shopid  | String | Yes      | Shop ID (SFA Metadata).         |
+| route   | String | Yes      | Route ID (SFA Metadata).        |
+| orgid   | String | Yes      | Organization ID (SFA Metadata). |
+| offset  | Number | Yes      | Number of past visits to retrieve. |
+| agentid | String | No       | Agent ID (SFA Metadata, null = any agent). |
+| role    | String | No       | Role (SFA Metadata, null = any agent). |
+
+**Response Fields** (Array of):
+
+| Field             | Type          | Required | Description                              |
+|-------------------|---------------|----------|------------------------------------------|
+| int_visit_id      | String        | Yes      | Internal visit ID.                       |
+| agentid           | String        | Yes      | Agent ID (SFA Metadata).                 |
+| Date_Time_of_visit | String       | Yes      | Date and time of visit.                  |
+| history_data      | Base64 (HTML) | Yes      | Data of WEBSTYLE report (agreed with provider). |
+
+### Set Reason for Unrecognized Product
+
+**Action ID**: `oos_reason`
+
+Allows users to specify the reason for an unrecognized product during recognition.
+
+**Request Parameters**:
+
+| Field        | Type   | Required | Description                     | Example                                          |
+|--------------|--------|----------|---------------------------------|--------------------------------------------------|
+| ext_scene_id | String | Yes      | External Scene ID.              | "b8a88a19-dd1b-428e-a539-d4ea6457ec4b"          |
+| ext_visit_id | String | Yes      | External Visit ID.              | "dff35115-376c-44b9-b4fa-49ef3cece475"          |
+| sku_cid      | String | Yes      | Product ID.                     | "4600494663550"                                  |
+| component    | String | Yes      | Component ID (can be empty).    | "Напитки"                                        |
+| reason       | String | Yes      | Reason for non-recognition.     | "Ошибка распознавания"                           |
+| datafile     | String | No       | Image data (Base64 format).     | "base64(image)"                                  |
+
+**Example Request**:
+```json
+{
+  "action_id": "oos_reason",
+  "parameters": {
+    "ext_visit_id": "b8a88a19-dd1b-428e-a539-d4ea6457ec4b",
+    "ext_scene_id": "dff35115-376c-44b9-b4fa-49ef3cece475",
+    "sku_cid": "4600494663550",
+    "component": "Напитки",
+    "reason": "Ошибка распознавания",
+    "datafile": "base64(image)"
+  }
+}
+```
+
+**Response Fields**:
+
+| Field  | Type   | Required | Description                     |
+|--------|--------|----------|---------------------------------|
+| result | String | Yes      | Result of the operation.        |
+
+**Process**:
+1. iSales application sends images to the IR provider for recognition.
+2. IR provider returns an HTML report with JavaScript scripts.
+3. User clicks a link in the HTML report, triggering a dialog box to select a reason and optionally take a photo.
+4. iSales sends the `oos_reason` action to the IR provider with the reason and photo (if applicable).
+
+**HTML Report Requirements**:
+IR reports must include links for unrecognized products:
+```html
+<a onclick="sp1(this, sku_cid, Image_photo_link)">Product name</a>
+<a onclick="r3(this, 'sku_cid', 'component');">Причина</a>
+```
+
+**JavaScript Requirements**:
+The following must be defined in the report's JavaScript:
+```javascript
+var reasonList = "Ошибка распознавания;Нет в AEP;Нет на складе;Виртуальный сток;ПДЗ;Запрет выкладки";
+
+function sp1(self, sku_cid, Image_photo_link) {
+  Android.showProduct(self.innerHTML, sku_cid, Image_photo_link);
+}
+
+function r3(e, component_name, isales_sku_code) {
+  Android.showOosReasonDialog(component_name, isales_sku_code, reasonList);
+}
+```
+
+- `Image_photo_link`: Link to the standard photo of the product.
+- `sku_cid`: Product ID.
